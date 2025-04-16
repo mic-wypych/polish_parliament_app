@@ -145,7 +145,7 @@ ui <- fluidPage(
         arrange(desc(count)) %>%
         pull(club)
       
-      members_by_party$club <- factor(members_by_party$club, levels = party_order)
+      members_by_party$club <- factor(members_by_party$club, levels = rev(c("Razem", "Lewica", "Polska2050-TD", "PSL-TD", "KO", "PiS", "Republikanie", "Konfederacja", "niez.")))
       members_arranged <- members_by_party %>% arrange(club)
       
       # Calculate positions for hemicycle layout
