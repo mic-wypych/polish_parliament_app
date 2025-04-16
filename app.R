@@ -146,7 +146,7 @@ ui <- fluidPage(
         pull(club)
       
       members_by_party$club <- factor(members_by_party$club, levels = rev(c("Razem", "Lewica", "Polska2050-TD", "PSL-TD", "KO", "PiS", "Republikanie", "Konfederacja", "niez.")))
-      members_arranged <- members_by_party %>% arrange(club)
+      members_arranged <- members_by_party %>% arrange(club, lastName)
       
       # Calculate positions for hemicycle layout
       # Start with the largest radius (outer edge)
@@ -268,8 +268,8 @@ ui <- fluidPage(
                                               "ID: ", id))) +
         geom_point(size = 4, alpha = 0.8) +
         scale_color_manual(values = c("PiS" = "#012b7f", "KO" = "#d41c3c", "PSL-TD" = "#3cb43c",
-    "Polska2050-TD" = "#f9c300", "Lewica" = "#a81849", "Razem" = "#870f57",
-  "Konfederacja" = "#1b263f", "Republikanie" = "#749cbc", "niez." = "#000000")) +
+        "Polska2050-TD" = "#f9c300", "Lewica" = "#a81849", "Razem" = "#870f57",
+        "Konfederacja" = "#1b263f", "Republikanie" = "#749cbc", "niez." = "#000000")) +
         theme_void() +
         theme(legend.title = element_text(size = 10),
               legend.text = element_text(size = 8),
@@ -295,24 +295,20 @@ ui <- fluidPage(
       event_data <- event_data("plotly_hover")
       if (!is.null(event_data)) {
         members_df <- fetchSejmData()
+        members_df$key <- row_number(members_df)
         if (!is.null(input$partyFilter) && length(input$partyFilter) > 0) {
-          members_df <- members_df %>% filter(club %in% input$partyFilter)
-        }
+            members_df <- members_df %>% filter(club %in% input$partyFilter)
+          }
+          
+      
         
-        # Order by party
-        party_order <- members_df %>%
-          group_by(club) %>%
-          summarize(count = n()) %>%
-          arrange(desc(count)) %>%
-          pull(club)
-        
-        members_df$club <- factor(members_df$club, levels = party_order)
+        members_df$club <- factor(members_df$club, levels = rev(c("Razem", "Lewica", "Polska2050-TD", "PSL-TD", "KO", "PiS", "Republikanie", "Konfederacja", "niez.")))
         members_arranged <- members_df %>% arrange(club, lastName)
         
-        point_index <- event_data$pointNumber[1] + 1
+        point_index <- event_data$pointNumber + 1
         
         if (point_index <= nrow(members_arranged)) {
-          member <- members_arranged[point_index, ]
+          member <- members_arranged[members_df$key %in% event_data$customdata, ]
           cat("Name: ", member$firstName, " ", member$lastName, "\n")
           cat("Party: ", member$club, "\n")
           cat("Interpellations: ", member$interpellationCount, "\n")
