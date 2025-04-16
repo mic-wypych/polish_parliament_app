@@ -267,7 +267,9 @@ ui <- fluidPage(
                                               "Interpellations: ", interpellationCount, "<br>",
                                               "ID: ", id))) +
         geom_point(size = 4, alpha = 0.8) +
-        scale_color_manual(values = club_colors) +
+        scale_color_manual(values = c("PiS" = "#012b7f", "KO" = "#d41c3c", "PSL-TD" = "#3cb43c",
+    "Polska2050-TD" = "#f9c300", "Lewica" = "#a81849", "Razem" = "#870f57",
+  "Konfederacja" = "#1b263f", "Republikanie" = "#749cbc", "niez." = "#000000")) +
         theme_void() +
         theme(legend.title = element_text(size = 10),
               legend.text = element_text(size = 8),
