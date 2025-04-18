@@ -146,7 +146,7 @@ ui <- fluidPage(
         pull(club)
       
       members_by_party$club <- factor(members_by_party$club, levels = rev(c("Razem", "Lewica", "Polska2050-TD", "PSL-TD", "KO", "PiS", "Republikanie", "Konfederacja", "niez.")))
-      members_arranged <- members_by_party %>% arrange(club, lastName)
+      members_arranged <- members_by_party %>% arrange(club, lastName) %>% ungroup()
       
       # Calculate positions for hemicycle layout
       # Start with the largest radius (outer edge)
@@ -238,7 +238,8 @@ ui <- fluidPage(
           # Add to result
           result <- rbind(result, party_df)
         }
-        
+        result <- result %>% arrange(club, lastName)
+
         return(result)
       }
       
@@ -248,24 +249,16 @@ ui <- fluidPage(
       # Adjust y-coordinates to make sure all points are in the upper half-plane
       plotData$y[plotData$y < 0] <- 0.1
       
-      # Define colors for different clubs
-      clubs <- unique(plotData$club)
-      n_clubs <- length(clubs)
-      
-      if (n_clubs <= 8) {
-        colors <- brewer.pal(max(3, n_clubs), "Set1")
-      } else {
-        colors <- colorRampPalette(brewer.pal(8, "Set1"))(n_clubs)
-      }
-      
-      club_colors <- setNames(colors[1:n_clubs], clubs)
-      
+
+      plotData$row <- row.names(plotData)
+
       # Create the plot
-      p <- ggplot(plotData, aes(x = x, y = y, color = club,
+      p <- ggplot(plotData, aes(x = x, y = y, color = club, key = rownames(plotData),
                                  text = paste0("<b>", firstName, " ", lastName, "</b><br>",
                                               "Party: ", club, "<br>",
                                               "Interpellations: ", interpellationCount, "<br>",
-                                              "ID: ", id))) +
+                                              "ID: ", id, "<br>",
+                                            "row: ", row))) +
         geom_point(size = 4, alpha = 0.8) +
         scale_color_manual(values = c("PiS" = "#012b7f", "KO" = "#d41c3c", "PSL-TD" = "#3cb43c",
         "Polska2050-TD" = "#f9c300", "Lewica" = "#a81849", "Razem" = "#870f57",
@@ -277,8 +270,7 @@ ui <- fluidPage(
               plot.margin = unit(c(1, 1, 1, 1), "cm")) +
         labs(color = "Party") +
         coord_fixed(ratio = 1) +
-        # Flip coordinates to make the hemicycle open at the bottom like in the image
-        scale_y_reverse() +
+
         # Set limits to ensure we see the proper hemicycle shape
         xlim(c(-base_radius-1, base_radius+1)) +
         ylim(c(base_radius+1, -1))
@@ -293,27 +285,27 @@ ui <- fluidPage(
     # Display detailed information about selected member
     output$memberDetails <- renderPrint({
       event_data <- event_data("plotly_hover")
+      
+
       if (!is.null(event_data)) {
         members_df <- fetchSejmData()
-        members_df$key <- row_number(members_df)
         if (!is.null(input$partyFilter) && length(input$partyFilter) > 0) {
             members_df <- members_df %>% filter(club %in% input$partyFilter)
           }
           
-      
         
         members_df$club <- factor(members_df$club, levels = rev(c("Razem", "Lewica", "Polska2050-TD", "PSL-TD", "KO", "PiS", "Republikanie", "Konfederacja", "niez.")))
-        members_arranged <- members_df %>% arrange(club, lastName)
+        members_arranged <- members_df %>% dplyr::arrange(club, lastName)
         
-        point_index <- event_data$pointNumber + 1
+        point_index <- event_data$key
         
-        if (point_index <= nrow(members_arranged)) {
-          member <- members_arranged[members_df$key %in% event_data$customdata, ]
+
+          member <- members_arranged[point_index, ]
           cat("Name: ", member$firstName, " ", member$lastName, "\n")
-          cat("Party: ", member$club, "\n")
+          cat("Party: ", as.character(member$club), "\n")
           cat("Interpellations: ", member$interpellationCount, "\n")
           cat("Member ID: ", member$id, "\n")
-        }
+
       } else {
         cat("Hover over a point to see details")
       }
