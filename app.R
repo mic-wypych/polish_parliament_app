@@ -303,6 +303,10 @@ ui <- fluidPage(
           member <- members_arranged[point_index, ]
           cat("Name: ", member$firstName, " ", member$lastName, "\n")
           cat("Party: ", as.character(member$club), "\n")
+          cat("Proffesion: ", member$profession, "\n")
+          cat("District: ", member$districtName, "\n")
+          cat("Birth date: ", member$birthDate, "\n")
+          cat("Number of votes: ", as.character(member$numberOfVotes), "\n")
           cat("Interpellations: ", member$interpellationCount, "\n")
           cat("Member ID: ", member$id, "\n")
 
