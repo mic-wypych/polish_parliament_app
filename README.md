@@ -2,8 +2,6 @@ This is an application showing all members of Polish Sejm (lower chamber of Parl
 
 ## TODO
 
-- add pictures to member details information
-
 - add a table with all MPs that allow to sort/filter e.g. for most active MPs
 
 - add a separate tab with party level info
