@@ -106,7 +106,7 @@ ui <- fluidPage(
       
       # Merge with members data
       members_df <- merge(members, interpellations_df, by = "id")
-      
+      members_df <- members_df |> filter(active == TRUE)
       # Update party filter choices
       if (!is.null(members_df)) {
         clubs <- sort(unique(members_df$club))
