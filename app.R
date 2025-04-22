@@ -265,10 +265,7 @@ ui <- fluidPage(
       # Create the plot
       p <- ggplot(plotData, aes(x = x, y = y, color = club, key = rownames(plotData),
                                  text = paste0("<b>", firstName, " ", lastName, "</b><br>",
-                                              "Party: ", club, "<br>",
-                                              "Interpellations: ", interpellationCount, "<br>",
-                                              "ID: ", id, "<br>",
-                                            "row: ", row))) +
+                                              "Party: ", club))) +
         geom_point(size = 4, alpha = 0.8) +
         scale_color_manual(values = c("PiS" = "#012b7f", "KO" = "#d41c3c", "PSL-TD" = "#3cb43c",
         "Polska2050-TD" = "#f9c300", "Lewica" = "#a81849", "Razem" = "#870f57",
