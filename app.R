@@ -47,6 +47,7 @@ ui <- fluidPage(
                  selectInput("partyFilter", "Filter by Party:", choices = c("All" = ""), multiple = TRUE),
                  hr(),
                  h4("Selected Member Details"),
+                 uiOutput("photo"),
                  verbatimTextOutput("memberDetails")
              )
       )
@@ -96,16 +97,25 @@ ui <- fluidPage(
           interpellation_count <- length(interpellations)
         }
         
-        return(list(id = member_id, interpellationCount = interpellation_count))
+       
+        
+        return(list(
+          id = member_id, 
+          interpellationCount = interpellation_count
+        ))
       })
       
       # Convert list to dataframe
-      interpellations_df <- do.call(rbind, lapply(members_data, function(x) {
-        data.frame(id = x$id, interpellationCount = x$interpellationCount, stringsAsFactors = FALSE)
+      members_df <- do.call(rbind, lapply(members_data, function(x) {
+        data.frame(
+          id = x$id, 
+          interpellationCount = x$interpellationCount,
+          stringsAsFactors = FALSE
+        )
       }))
       
-      # Merge with members data
-      members_df <- merge(members, interpellations_df, by = "id")
+      # Join with your original members dataframe to keep all the other information
+      members_df <- merge(members, members_df, by = "id")
       members_df <- members_df |> filter(active == TRUE)
       # Update party filter choices
       if (!is.null(members_df)) {
@@ -283,6 +293,31 @@ ui <- fluidPage(
     })
     
     # Display detailed information about selected member
+
+
+    output$photo <- renderUI({
+      event_data <- event_data("plotly_hover")
+
+      if (!is.null(event_data)) {
+        members_df <- fetchSejmData()
+        if (!is.null(input$partyFilter) && length(input$partyFilter) > 0) {
+            members_df <- members_df %>% filter(club %in% input$partyFilter)
+          }
+        
+          members_df$club <- factor(members_df$club, levels = rev(c("Razem", "Lewica", "Polska2050-TD", "PSL-TD", "KO", "PiS", "Republikanie", "Konfederacja", "niez.")))
+          members_arranged <- members_df %>% dplyr::arrange(club, lastName)
+          
+          point_index <- event_data$key
+          
+  
+            member <- members_arranged[point_index, ]
+
+        tags$img(src = paste0("https://api.sejm.gov.pl/sejm/term10/MP/", member$id, "/photo"), height = "180px", style = "max-width: 140px;")
+      } else {
+        cat("Hover over a point to see details")
+      }
+      })
+
     output$memberDetails <- renderPrint({
       event_data <- event_data("plotly_hover")
       
@@ -307,7 +342,6 @@ ui <- fluidPage(
           cat("District: ", member$districtName, "\n")
           cat("Birth date: ", member$birthDate, "\n")
           cat("Number of votes: ", as.character(member$numberOfVotes), "\n")
-          cat("Interpellations: ", member$interpellationCount, "\n")
           cat("Member ID: ", member$id, "\n")
 
       } else {
