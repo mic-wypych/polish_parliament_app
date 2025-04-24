@@ -312,7 +312,7 @@ ui <- fluidPage(
   
             member <- members_arranged[point_index, ]
 
-        tags$img(src = paste0("https://api.sejm.gov.pl/sejm/term10/MP/", member$id, "/photo"), height = "180px", style = "max-width: 140px;")
+        tags$img(src = paste0("https://api.sejm.gov.pl/sejm/term10/MP/", member$id, "/photo"), height = "180px", style = "max-width: 140px; border-radius: 20%;")
       } else {
         cat("Hover over a point to see details")
       }
@@ -366,7 +366,7 @@ ui <- fluidPage(
               bar_chart(value, width = width)
             }),
             photo = colDef(cell = function(value) {
-              image <- img(src = sprintf(value), style = "height: 50px;")
+              image <- img(src = sprintf(value), style = "height: 50px; border-radius: 20%;")
               tagList(
                 div(style = "display: inline-block; width: 45px;", image)
               )
