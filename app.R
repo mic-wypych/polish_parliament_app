@@ -9,7 +9,7 @@ library(jsonlite)
 library(ggplot2)
 library(plotly)
 library(dplyr)
-library(RColorBrewer)
+library(reactable)
 
 # Define UI
 ui <- fluidPage(
@@ -51,6 +51,9 @@ ui <- fluidPage(
                  verbatimTextOutput("memberDetails")
              )
       )
+    ),
+    fluidRow(
+      reactableOutput("mptable")
     )
   )
   
@@ -309,7 +312,7 @@ ui <- fluidPage(
   
             member <- members_arranged[point_index, ]
 
-        tags$img(src = paste0("https://api.sejm.gov.pl/sejm/term10/MP/", member$id, "/photo"), height = "180px", style = "max-width: 140px;")
+        tags$img(src = paste0("https://api.sejm.gov.pl/sejm/term10/MP/", member$id, "/photo"), height = "180px", style = "max-width: 140px; border-radius: 20%;")
       } else {
         cat("Hover over a point to see details")
       }
@@ -344,6 +347,33 @@ ui <- fluidPage(
       } else {
         cat("Hover over a point to see details")
       }
+    })
+
+    output$mptable <- renderReactable({
+      bar_chart <- function(label, width = "100%", height = "1rem", fill = "#00bfc4", background = NULL) {
+        bar <- div(style = list(background = fill, width = width, height = height, transition = "width 0.6s ease"))
+        chart <- div(style = list(flexGrow = 1, marginLeft = "0.5rem", background = background), bar)
+        div(style = list(display = "flex", alignItems = "center"), label, chart)
+      }
+      mps <- fetchSejmData()
+      mps |>
+        mutate(photo = paste0("https://api.sejm.gov.pl/sejm/term10/MP/", id, "/photo")) %>%
+        select(firstLastName, photo, club, birthDate, districtName, numberOfVotes) |>
+        reactable(
+          columns = list(
+            numberOfVotes = colDef(name = "number of votes", align = "left", cell = function(value) {
+              width <- paste0(value / max(mps$numberOfVotes) * 100, "%")
+              bar_chart(value, width = width)
+            }),
+            photo = colDef(cell = function(value) {
+              image <- img(src = sprintf(value), style = "height: 50px; border-radius: 20%;")
+              tagList(
+                div(style = "display: inline-block; width: 45px;", image)
+              )
+            })
+
+
+  ))
     })
   }
 
