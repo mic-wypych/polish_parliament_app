@@ -4,6 +4,7 @@
 
 # Load required libraries
 library(shiny)
+library(shinydashboard)
 library(httr)
 library(jsonlite)
 library(ggplot2)
@@ -30,31 +31,59 @@ ui <- fluidPage(
         }
       "))
     ),
-    titlePanel("Polish Sejm Members Visualization"),
-    
-    div(class = "title-box",
-        p("Interactive visualization of the members of the Polish Sejm"),
-        p("Hover over each point to see detailed information about the Sejm member")
-    ),
-    
-    fluidRow(
-      column(9,
-             plotlyOutput("memberPlot", height = "700px")
+
+
+    dashboardPage(
+      dashboardHeader(title = "Polish parliament application"),
+      dashboardSidebar(
+        sidebarMenu(
+          menuItem("parties", tabName = "parties", icon = icon("landmark")),
+          menuItem("Members", tabName = "members", icon = icon("user")),
+          menuItem("Votes", tabName = "votes", icon = icon("envelope"))
+        )
       ),
-      column(3,
-             div(class = "info-box",
-                 h4("Filter Options"),
-                 selectInput("partyFilter", "Filter by Party:", choices = c("All" = ""), multiple = TRUE),
-                 hr(),
-                 h4("Selected Member Details"),
-                 uiOutput("photo"),
-                 verbatimTextOutput("memberDetails")
-             )
+      dashboardBody(
+        tabItems(
+          tabItem(tabName = "parties",
+          div(class = "title-box",
+        p("Interactive visualization of the members of the Polish Sejm"),
+        p("Hover over each point to see detailed information about the Sejm member")),
+    
+        
+        fluidRow(
+        column(9,
+               plotlyOutput("memberPlot", height = "700px")
+        ),
+        column(3,
+               div(class = "info-box",
+                   h4("Filter Options"),
+                   selectInput("partyFilter", "Filter by Party:", choices = c("All" = ""), multiple = TRUE),
+                   hr(),
+                   h4("Selected Member Details"),
+                   uiOutput("photo"),
+                   verbatimTextOutput("memberDetails")
+               )
+        )
+      ),
+      fluidRow(
+        reactableOutput("mptable")
       )
-    ),
-    fluidRow(
-      reactableOutput("mptable")
+
+          ),
+          tabItem(tabName = "members"
+
+          ),
+          tabItem(tabName = "votes"
+
+          )
+        )
+
+
+        
     )
+    ),
+    
+    
   )
   
   # Define server logic
