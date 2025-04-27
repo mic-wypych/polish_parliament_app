@@ -4,12 +4,17 @@
 
 # Load required libraries
 library(shiny)
+library(shinydashboard)
 library(httr)
 library(jsonlite)
 library(ggplot2)
 library(plotly)
 library(dplyr)
 library(reactable)
+library(stringr)
+library(dplyr)
+library(tidyr)
+library(glue)
 
 # Define UI
 ui <- fluidPage(
@@ -30,31 +35,64 @@ ui <- fluidPage(
         }
       "))
     ),
-    titlePanel("Polish Sejm Members Visualization"),
-    
-    div(class = "title-box",
-        p("Interactive visualization of the members of the Polish Sejm"),
-        p("Hover over each point to see detailed information about the Sejm member")
-    ),
-    
-    fluidRow(
-      column(9,
-             plotlyOutput("memberPlot", height = "700px")
+
+
+    dashboardPage(
+      dashboardHeader(title = "Polish parliament application"),
+      dashboardSidebar(
+        sidebarMenu(
+          menuItem("parties", tabName = "parties", icon = icon("landmark")),
+          menuItem("Members", tabName = "members", icon = icon("user")),
+          menuItem("Votes", tabName = "votes", icon = icon("envelope"))
+        )
       ),
-      column(3,
-             div(class = "info-box",
-                 h4("Filter Options"),
-                 selectInput("partyFilter", "Filter by Party:", choices = c("All" = ""), multiple = TRUE),
-                 hr(),
-                 h4("Selected Member Details"),
-                 uiOutput("photo"),
-                 verbatimTextOutput("memberDetails")
-             )
+      dashboardBody(
+        tabItems(
+          tabItem(tabName = "members",
+          div(class = "title-box",
+        p("Interactive visualization of the members of the Polish Sejm"),
+        p("Hover over each point to see detailed information about the Sejm member")),
+    
+        
+        fluidRow(
+        column(9,
+               plotlyOutput("memberPlot", height = "700px")
+        ),
+        column(3,
+               div(class = "info-box",
+                   h4("Filter Options"),
+                   selectInput("partyFilter", "Filter by Party:", choices = c("All" = ""), multiple = TRUE),
+                   hr(),
+                   h4("Selected Member Details"),
+                   uiOutput("photo"),
+                   verbatimTextOutput("memberDetails")
+               )
+        )
+      ),
+      fluidRow(
+        reactableOutput("mptable")
       )
-    ),
-    fluidRow(
-      reactableOutput("mptable")
+
+          ),
+          tabItem(tabName = "parties",
+          fluidRow(
+            plotlyOutput("committeePlot")
+          ),
+          fluidRow(
+            plotlyOutput("groupPlot")
+          )
+          ),
+          tabItem(tabName = "votes"
+
+          )
+        )
+
+
+        
     )
+    ),
+    
+    
   )
   
   # Define server logic
@@ -374,6 +412,168 @@ ui <- fluidPage(
 
 
   ))
+    })
+
+    output$committeePlot <- renderPlotly({
+      com_response <- tryCatch({
+        GET("https://api.sejm.gov.pl/sejm/term10/committees")
+      }, error = function(e) {
+        return(NULL)
+      })
+      
+      committees <- fromJSON(content(com_response, "text", encoding = "UTF-8"))
+      
+      #there are 39 committees which is an ok number I guess
+      
+      # the members are already listed inside nice dataframes so it should be fairly easy to get it to work
+      members <- committees$members
+      
+      coms_members_df <-committees$members[[1]]
+      coms_members_df$name <- committees$name[1]
+      for (i in 2:length(members)) {
+         temp <- members[[i]]
+         temp$name <- committees$name[i]
+         coms_members_df <- rbind(coms_members_df, temp)
+      }
+      
+      
+      waffle_df <- coms_members_df %>%
+        group_by(name) %>%
+        arrange(club, lastFirstName) %>%
+        mutate(
+          id = row_number(),        # unique ID per MP in committee
+          row = (id - 1) %/% 10,    # 10 tiles per row
+          col = (id - 1) %% 10,
+          position = `function`,
+          name = str_wrap(name, 50),
+          position = replace_na(position, " ")
+        ) %>%
+        ungroup() 
+      
+      # Tooltip text
+      waffle_df <- waffle_df %>%
+        mutate(tooltip = glue("MP: {lastFirstName}<br>club: {club}<br>Function: {position}"))
+      
+      # ggplot
+      p <- ggplot(waffle_df, aes(x = col, y = -row, fill = club, text = tooltip)) +
+        geom_tile(color = "white", width = 0.9, height = 0.9) +
+        facet_wrap(~name) +
+          scale_fill_manual(values = c("PiS" = "#012b7f", "KO" = "#d41c3c", "PSL-TD" = "#3cb43c",
+        "Polska2050-TD" = "#f9c300", "Lewica" = "#a81849", "Razem" = "#870f57",
+        "Konfederacja" = "#1b263f", "Republikanie" = "#749cbc", "niez." = "#000000")) +
+        coord_equal() +
+        labs(title = "Committees and their members") +
+        theme_minimal() +
+        theme(
+          axis.text = element_blank(),
+          axis.title = element_blank(),
+          panel.grid = element_blank(),
+          strip.text = element_text(size= 4)
+        )
+      
+      # Convert to interactive plotly
+      ggplotly(p, tooltip = "text") %>%
+        layout(
+          hoverlabel = list(
+            bgcolor = "white", 
+            bordercolor = "black", 
+            font = list(family = "Arial", size = 12)
+          ),
+          legend = list(orientation = "h", y = -0.1)
+        )
+    })
+
+    output$groupPlot <- renderPlotly({
+      group_response <- tryCatch({
+        GET("https://api.sejm.gov.pl/sejm/term10/bilateralGroups")
+      }, error = function(e) {
+        return(NULL)
+      })
+      
+      
+      group_response <- fromJSON(content(group_response, "text", encoding = "UTF-8"))
+      
+      
+      group_list <- list()
+      
+      for (i in group_response[["id"]]) {
+      
+        group_i_response <- tryCatch({
+          GET(paste0("https://api.sejm.gov.pl/sejm/term10/bilateralGroups/", i))
+        }, error = function(e) {
+          return(NULL)
+        })
+      
+        group_i <- fromJSON(content(group_i_response, "text", encoding = "UTF-8"))
+        group_i <- list(group_i)
+        group_list <- append(group_list, group_i)
+      
+      }
+      
+      
+      name <- group_list[[1]]$name
+      
+      group_list[[1]]$members$group_name <- name
+      
+      df_group_members <- group_list[[1]]$members[,c("club", "id", "name","type", "senator", "group_name")]
+      
+      for (i in 2:length(group_list)) {
+        name <- group_list[[i]]$name
+      
+        group_list[[i]]$members$group_name <- name
+        df_i <- data.frame(group_list[[i]]$members[,c("club", "id", "name","type", "senator", "group_name")])
+        
+        df_group_members <- rbind(df_group_members, df_i)
+      
+      }
+      
+      df_group_members <- df_group_members %>%
+        filter(senator == FALSE)
+      
+      
+      waffle_df <- df_group_members %>%
+        group_by(group_name) %>%
+        arrange(club, name) %>%
+        mutate(
+          id = row_number(),        # unique ID per MP in committee
+          row = (id - 1) %/% 10,    # 10 tiles per row
+          col = (id - 1) %% 10,
+          name = str_wrap(name, 50),
+          type = replace_na(type, " ")
+        ) %>%
+        ungroup() 
+      
+      # Tooltip text
+      waffle_df <- waffle_df %>%
+        mutate(tooltip = glue("MP: {name}<br>club: {club}<br>Function: {type}"))
+      
+      # ggplot
+      p <- ggplot(waffle_df, aes(x = col, y = -row, fill = club, text = tooltip)) +
+        geom_tile(color = "white", width = 0.9, height = 0.9) +
+        facet_wrap(~group_name) +
+          scale_fill_manual(values = c("PiS" = "#012b7f", "KO" = "#d41c3c", "PSL-TD" = "#3cb43c",
+        "Polska2050-TD" = "#f9c300", "Lewica" = "#a81849", "Razem" = "#870f57",
+        "Konfederacja" = "#1b263f", "Republikanie" = "#749cbc", "niez." = "#000000")) +
+        coord_equal() +
+        labs(title = "Groups and their members") +
+        theme_minimal() +
+        theme(
+          axis.text = element_blank(),
+          axis.title = element_blank(),
+          panel.grid = element_blank(),
+          strip.text = element_text(size= 4)
+        )
+      
+      # Convert to interactive plotly
+      ggplotly(p, tooltip = "text") %>%
+        layout(
+          hoverlabel = list(
+            bgcolor = "white", 
+            bordercolor = "black", 
+            font = list(family = "Arial", size = 12)
+          ),
+          legend = list(orientation = "h", y = -0.1)
+        )
     })
   }
 
