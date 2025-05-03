@@ -82,7 +82,9 @@ ui <- fluidPage(
             plotlyOutput("groupPlot")
           )
           ),
-          tabItem(tabName = "votes"
+          tabItem(tabName = "votes",
+
+          reactableOutput("vtable")
 
           )
         )
@@ -394,9 +396,48 @@ ui <- fluidPage(
         div(style = list(display = "flex", alignItems = "center"), label, chart)
       }
       mps <- fetchSejmData()
+
+      q_response <- tryCatch({
+        GET('https://api.sejm.gov.pl/sejm/term10/writtenQuestions')
+      }, error = function(e) {
+        return(NULL)
+      })
+      
+      q_response <- fromJSON(content(q_response, "text", encoding = "UTF-8"))
+      q_response <- tibble(q_response)
+
+      q_count <- q_response |>
+        count(from, name = "q_count") %>%
+        mutate(from = as.integer(from))
+
+      inter_response <- tryCatch({
+        GET('https://api.sejm.gov.pl/sejm/term10/interpellations')
+      }, error = function(e) {
+        return(NULL)
+      })
+      
+      
+      inter_response <- fromJSON(content(inter_response, "text", encoding = "UTF-8"))
+      inter_response <- tibble(inter_response)
+
+
+      inter_response <- unnest(inter_response, from )
+
+      inter_count <- inter_response |>
+        count(from, name = "inter_count") %>%
+        mutate(from = as.integer(from))
+      
+      mps <- mps %>%
+        left_join(q_count, by = c("id" = "from")) |>
+          left_join(inter_count, by = c("id" = "from")) |>
+        mutate(q_count = replace_na(q_count, 0),
+               inter_count = replace_na(inter_count, 0))
+
+
+
       mps |>
         mutate(photo = paste0("https://api.sejm.gov.pl/sejm/term10/MP/", id, "/photo")) %>%
-        select(firstLastName, photo, club, birthDate, districtName, numberOfVotes) |>
+        select(firstLastName, photo, club, birthDate, districtName, numberOfVotes, q_count, inter_count) |>
         reactable(
           columns = list(
             numberOfVotes = colDef(name = "number of votes", align = "left", cell = function(value) {
@@ -408,6 +449,14 @@ ui <- fluidPage(
               tagList(
                 div(style = "display: inline-block; width: 45px;", image)
               )
+            }),
+            q_count = colDef(name = "number of questions", align = "left", cell = function(value) {
+              width <- paste0(value / max(mps$q_count) * 100, "%")
+              bar_chart(value, width = width, fill = "#2a9d8f")
+            }),
+            inter_count = colDef(name = "number of interpellations", align = "left", cell = function(value) {
+              width <- paste0(value / max(mps$inter_count) * 100, "%")
+              bar_chart(value, width = width, fill = "#8338ec")
             })
 
 
@@ -574,6 +623,86 @@ ui <- fluidPage(
           ),
           legend = list(orientation = "h", y = -0.1)
         )
+    })
+
+    output$vtable <- renderReactable({
+      proc_response <- tryCatch({
+        GET("https://api.sejm.gov.pl/sejm/term10/proceedings/")
+      }, error = function(e) {
+        return(NULL)
+      })
+      
+      proc_response <- fromJSON(content(proc_response, "text", encoding = "UTF-8"))
+      
+      proc_response
+      
+      v_response <- tryCatch({
+        GET("https://api.sejm.gov.pl/sejm/term10/votings/1")
+      }, error = function(e) {
+        return(NULL)
+      })
+      
+      v_response <- fromJSON(content(v_response, "text", encoding = "UTF-8"))
+      
+      
+      v_response
+      
+      voting_list <- list()
+      
+      for (i in proc_response$number) {
+        v_response <- tryCatch({
+          GET(paste0("https://api.sejm.gov.pl/sejm/term10/votings/", i))
+        }, error = function(e) {
+          return(NULL)
+        })
+        
+        v_response <- fromJSON(content(v_response, "text", encoding = "UTF-8"))
+        v_response <- list(v_response)
+        voting_list <- append(voting_list, v_response)
+      }
+      
+      
+      vote_df <- voting_list[[1]]
+      
+      vote_df <- vote_df[,c("yes", "no", "abstain","date", "title", "topic", "totalVoted")]
+      vote_df$date <- as.Date(vote_df$date)
+      for (i in 2:length(voting_list)) {
+      
+        df_i <- data.frame(voting_list[[i]][c("yes", "no", "abstain","date", "title", "topic", "totalVoted")])
+        df_i$date <- as.Date(df_i$date)
+        vote_df <- rbind(vote_df, df_i)
+      
+      }
+      
+      #do we need to get proceedings and for each proceeding get the votes?
+      
+      vote_df$yes <- as.numeric(vote_df$yes )
+      vote_df$no <- as.numeric(vote_df$no )
+      vote_df$abstain <- as.numeric(vote_df$abstain )
+      
+      bar_chart <- function(label, width = "100%", height = "1rem", fill = "#00bfc4", background = NULL) {
+              bar <- div(style = list(background = fill, width = width, height = height, transition = "width 0.6s ease"))
+              chart <- div(style = list(flexGrow = 1, marginLeft = "0.5rem", background = background), bar)
+              div(style = list(display = "flex", alignItems = "center"), label, chart)
+            }
+      
+      vote_df |>
+        reactable(
+          columns = list(
+            yes = colDef(name = "yes votes", align = "left", cell = function(value) {
+              width <- paste0(value / max(vote_df$yes) * 100, "%")
+              bar_chart(value, width = width, fill = "#0081a7")
+            }),
+            abstain = colDef(name = "abstain votes", align = "left", cell = function(value) {
+              width <- paste0(value / max(vote_df$abstain) * 100, "%")
+              bar_chart(value, width = width, fill = "#8d99ae")}),
+            no = colDef(name = "no votes", align = "left", cell = function(value) {
+              width <- paste0(value / max(vote_df$no) * 100, "%")
+              bar_chart(value, width = width, fill = "#780000")
+            })
+            
+      ),
+      filterable = TRUE)
     })
   }
 
