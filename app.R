@@ -5,6 +5,7 @@
 # Load required libraries
 library(shiny)
 library(shinydashboard)
+library(shinycssloaders)
 library(httr)
 library(jsonlite)
 library(ggplot2)
@@ -56,7 +57,9 @@ ui <- fluidPage(
         
         fluidRow(
         column(9,
-               plotlyOutput("memberPlot", height = "700px")
+               withSpinner(
+                plotlyOutput("memberPlot", height = "700px")
+              )
         ),
         column(3,
                div(class = "info-box",
@@ -70,21 +73,31 @@ ui <- fluidPage(
         )
       ),
       fluidRow(
-        reactableOutput("mptable")
+        withSpinner(
+          reactableOutput("mptable")
+      )
       )
 
           ),
           tabItem(tabName = "parties",
           fluidRow(
-            plotlyOutput("committeePlot")
+            withSpinner(
+              plotlyOutput("committeePlot")
+            )
           ),
           fluidRow(
-            plotlyOutput("groupPlot")
+            withSpinner(
+              plotlyOutput("groupPlot")
+            )
           )
           ),
           tabItem(tabName = "votes",
-          plotlyOutput("v_timePlot"),
-          reactableOutput("vtable")
+          withSpinner(
+            plotlyOutput("v_timePlot")
+          ),
+          withSpinner(
+            reactableOutput("vtable")
+          )
 
           )
         )
