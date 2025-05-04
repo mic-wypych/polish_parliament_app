@@ -83,7 +83,7 @@ ui <- fluidPage(
           )
           ),
           tabItem(tabName = "votes",
-
+          plotlyOutput("v_timePlot"),
           reactableOutput("vtable")
 
           )
@@ -168,7 +168,63 @@ ui <- fluidPage(
       
       return(members_df)
     })
-    
+    fetchVoteData <- reactive({
+      proc_response <- tryCatch({
+        GET("https://api.sejm.gov.pl/sejm/term10/proceedings/")
+      }, error = function(e) {
+        return(NULL)
+      })
+      
+      proc_response <- fromJSON(content(proc_response, "text", encoding = "UTF-8"))
+      
+      proc_response
+      
+      v_response <- tryCatch({
+        GET("https://api.sejm.gov.pl/sejm/term10/votings/1")
+      }, error = function(e) {
+        return(NULL)
+      })
+      
+      v_response <- fromJSON(content(v_response, "text", encoding = "UTF-8"))
+      
+      
+      v_response
+      
+      voting_list <- list()
+      
+      for (i in proc_response$number) {
+        v_response <- tryCatch({
+          GET(paste0("https://api.sejm.gov.pl/sejm/term10/votings/", i))
+        }, error = function(e) {
+          return(NULL)
+        })
+        
+        v_response <- fromJSON(content(v_response, "text", encoding = "UTF-8"))
+        v_response <- list(v_response)
+        voting_list <- append(voting_list, v_response)
+      }
+      
+      
+      vote_df <- voting_list[[1]]
+      
+      vote_df <- vote_df[,c("yes", "no", "abstain","date", "title", "topic", "totalVoted")]
+      vote_df$date <- as.Date(vote_df$date)
+      for (i in 2:length(voting_list)) {
+      
+        df_i <- data.frame(voting_list[[i]][c("yes", "no", "abstain","date", "title", "topic", "totalVoted")])
+        df_i$date <- as.Date(df_i$date)
+        vote_df <- rbind(vote_df, df_i)
+      
+      }
+      
+      #do we need to get proceedings and for each proceeding get the votes?
+      
+      vote_df$yes <- as.numeric(vote_df$yes )
+      vote_df$no <- as.numeric(vote_df$no )
+      vote_df$abstain <- as.numeric(vote_df$abstain )
+
+      return(vote_df)
+    })
     # Create the plot with members arranged in a hemicycle
     output$memberPlot <- renderPlotly({
       members_df <- fetchSejmData()
@@ -626,59 +682,7 @@ ui <- fluidPage(
     })
 
     output$vtable <- renderReactable({
-      proc_response <- tryCatch({
-        GET("https://api.sejm.gov.pl/sejm/term10/proceedings/")
-      }, error = function(e) {
-        return(NULL)
-      })
-      
-      proc_response <- fromJSON(content(proc_response, "text", encoding = "UTF-8"))
-      
-      proc_response
-      
-      v_response <- tryCatch({
-        GET("https://api.sejm.gov.pl/sejm/term10/votings/1")
-      }, error = function(e) {
-        return(NULL)
-      })
-      
-      v_response <- fromJSON(content(v_response, "text", encoding = "UTF-8"))
-      
-      
-      v_response
-      
-      voting_list <- list()
-      
-      for (i in proc_response$number) {
-        v_response <- tryCatch({
-          GET(paste0("https://api.sejm.gov.pl/sejm/term10/votings/", i))
-        }, error = function(e) {
-          return(NULL)
-        })
-        
-        v_response <- fromJSON(content(v_response, "text", encoding = "UTF-8"))
-        v_response <- list(v_response)
-        voting_list <- append(voting_list, v_response)
-      }
-      
-      
-      vote_df <- voting_list[[1]]
-      
-      vote_df <- vote_df[,c("yes", "no", "abstain","date", "title", "topic", "totalVoted")]
-      vote_df$date <- as.Date(vote_df$date)
-      for (i in 2:length(voting_list)) {
-      
-        df_i <- data.frame(voting_list[[i]][c("yes", "no", "abstain","date", "title", "topic", "totalVoted")])
-        df_i$date <- as.Date(df_i$date)
-        vote_df <- rbind(vote_df, df_i)
-      
-      }
-      
-      #do we need to get proceedings and for each proceeding get the votes?
-      
-      vote_df$yes <- as.numeric(vote_df$yes )
-      vote_df$no <- as.numeric(vote_df$no )
-      vote_df$abstain <- as.numeric(vote_df$abstain )
+      vote_df <- fetchVoteData()
       
       bar_chart <- function(label, width = "100%", height = "1rem", fill = "#00bfc4", background = NULL) {
               bar <- div(style = list(background = fill, width = width, height = height, transition = "width 0.6s ease"))
@@ -703,6 +707,32 @@ ui <- fluidPage(
             
       ),
       filterable = TRUE)
+    })
+
+    output$v_timePlot <- renderPlotly({
+      vote_df <- fetchVoteData()
+
+      vote_time_plot <- vote_df %>%
+        count(date) |>
+        ggplot(aes(x = date, y = n, text = glue("data: {date}<br>votes: {n}"))) +
+        geom_col(fill = "#780000", width = 1.5) +
+        scale_x_date(date_breaks = "month") +
+        theme_minimal() +
+        labs(title = "Number of votes per day", y = "ilosć głosowań", x = NULL) +
+        theme(axis.text.x = element_text(angle = 90),
+            panel.grid = element_blank(),
+            panel.grid.major.x = element_line(color = "grey80", linetype = "dashed"))
+
+      ggplotly(vote_time_plot, tooltip = "text") %>%
+        layout(
+          hoverlabel = list(
+            bgcolor = "white", 
+            bordercolor = "black", 
+            font = list(family = "Arial", size = 12)
+          ),
+          legend = list(orientation = "h", y = -0.1)
+        )
+
     })
   }
 
