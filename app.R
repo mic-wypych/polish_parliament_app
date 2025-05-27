@@ -6,6 +6,7 @@
 library(shiny)
 library(shinydashboard)
 library(shinycssloaders)
+library(bslib)
 library(httr)
 library(jsonlite)
 library(ggplot2)
@@ -81,16 +82,22 @@ ui <- fluidPage(
           ),
           tabItem(tabName = "parties",
           fluidRow(
-            withSpinner(
-              plotlyOutput("committeePlot")
+            navset_card_underline(
+              nav_panel("Komisje",
+              withSpinner(
+                plotlyOutput("committeePlot")
+              )
+            ),
+              nav_panel("Grupy",
+              withSpinner(
+                plotlyOutput("groupPlot")
+              )
             )
-          ),
-          fluidRow(
-            withSpinner(
-              plotlyOutput("groupPlot")
             )
-          )
-          ),
+
+            
+          )),
+          
           tabItem(tabName = "votes",
           withSpinner(
             plotlyOutput("v_timePlot")
@@ -105,7 +112,7 @@ ui <- fluidPage(
 
         
     )
-    ),
+    )
     
     
   )
