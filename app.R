@@ -187,7 +187,7 @@ ui <- fluidPage(
       }
       
       return(members_df)
-    })
+    }) %>% bindCache(input$partyFilter)
     fetchVoteData <- reactive({
       proc_response <- tryCatch({
         GET("https://api.sejm.gov.pl/sejm/term10/proceedings/")
@@ -244,7 +244,7 @@ ui <- fluidPage(
       vote_df$abstain <- as.numeric(vote_df$abstain )
 
       return(vote_df)
-    })
+    }) %>% bindCache(input$partyFilter)
     # Create the plot with members arranged in a hemicycle
     output$memberPlot <- renderPlotly({
       members_df <- fetchSejmData()
@@ -757,4 +757,5 @@ ui <- fluidPage(
   }
 
 # Run the app
+
 shinyApp(ui = ui, server = server)
