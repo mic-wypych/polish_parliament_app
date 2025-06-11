@@ -6,6 +6,7 @@
 library(shiny)
 library(shinydashboard)
 library(shinycssloaders)
+library(bslib)
 library(httr)
 library(jsonlite)
 library(ggplot2)
@@ -81,16 +82,22 @@ ui <- fluidPage(
           ),
           tabItem(tabName = "parties",
           fluidRow(
-            withSpinner(
-              plotlyOutput("committeePlot")
+            navset_card_underline(
+              nav_panel("Komisje",
+              withSpinner(
+                plotlyOutput("committeePlot")
+              )
+            ),
+              nav_panel("Grupy",
+              withSpinner(
+                plotlyOutput("groupPlot")
+              )
             )
-          ),
-          fluidRow(
-            withSpinner(
-              plotlyOutput("groupPlot")
             )
-          )
-          ),
+
+            
+          )),
+          
           tabItem(tabName = "votes",
           withSpinner(
             plotlyOutput("v_timePlot")
@@ -105,7 +112,7 @@ ui <- fluidPage(
 
         
     )
-    ),
+    )
     
     
   )
@@ -180,7 +187,7 @@ ui <- fluidPage(
       }
       
       return(members_df)
-    })
+    }) %>% bindCache(input$partyFilter)
     fetchVoteData <- reactive({
       proc_response <- tryCatch({
         GET("https://api.sejm.gov.pl/sejm/term10/proceedings/")
@@ -237,7 +244,7 @@ ui <- fluidPage(
       vote_df$abstain <- as.numeric(vote_df$abstain )
 
       return(vote_df)
-    })
+    }) %>% bindCache(input$partyFilter)
     # Create the plot with members arranged in a hemicycle
     output$memberPlot <- renderPlotly({
       members_df <- fetchSejmData()
@@ -750,4 +757,5 @@ ui <- fluidPage(
   }
 
 # Run the app
+
 shinyApp(ui = ui, server = server)
